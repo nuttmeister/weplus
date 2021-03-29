@@ -28,7 +28,7 @@ var (
 
 	postRegexp   = regexp.MustCompile(`<li id="s-([0-9]{7})">[A-Za-z0-9 <>="\-\n]*<a href="/users/([0-9]{5})">`)
 	userIDRegexp = regexp.MustCompile(`<a href="/users/([0-9]{5})">[ \n]*<i class="fas fa-chart-bar"></i>[ \n]*My Statistics[ \n]*</a>`)
-	tokenRegexp  = regexp.MustCompile(`<meta name="csrf-token" content="([A-Za-z0-9+/==]*)" />`)
+	tokenRegexp  = regexp.MustCompile(`<meta name="csrf-token" content="([A-Za-z0-9+/=]*)" />`)
 
 	defLikeRatio    = 1.0
 	defCommentRatio = 0.8
