@@ -24,8 +24,6 @@ import (
 )
 
 var (
-	bucket = "save-the-hawk"
-
 	postRegexp   = regexp.MustCompile(`<li id="s-([0-9]{7})">[A-Za-z0-9 <>="\-\n]*<a href="/users/([0-9]{5})">`)
 	userIDRegexp = regexp.MustCompile(`<a href="/users/([0-9]{5})">[ \n]*<i class="fas fa-chart-bar"></i>[ \n]*My Statistics[ \n]*</a>`)
 	tokenRegexp  = regexp.MustCompile(`<meta name="csrf-token" content="([A-Za-z0-9+/=]*)" />`)
@@ -116,10 +114,11 @@ type cfg struct {
 	userID   string
 	token    string
 	password string
+	bucket   string
 }
 
 func new(ctx context.Context, timeout int) (*cfg, error) {
-	cfg := &cfg{ctx: ctx}
+	cfg := &cfg{ctx: ctx, bucket: os.Getenv("BUCKET")}
 
 	jar, err := cookiejar.New(nil)
 	if err != nil {
@@ -297,18 +296,18 @@ func (cfg *cfg) load(inp *input) (*data, [][]string, error) {
 }
 
 func (cfg *cfg) download(file string) ([]byte, error) {
-	resp, err := cfg.s3.GetObject(cfg.ctx, &s3.GetObjectInput{Bucket: &bucket, Key: &file})
+	resp, err := cfg.s3.GetObject(cfg.ctx, &s3.GetObjectInput{Bucket: &cfg.bucket, Key: &file})
 	if err != nil {
 		if strings.Contains(err.Error(), "NoSuchKey") {
 			return nil, err
 		}
-		return nil, fmt.Errorf("couldn't download file from s3://%s/%s. %w", bucket, file, err)
+		return nil, fmt.Errorf("couldn't download file from s3://%s/%s. %w", cfg.bucket, file, err)
 	}
 	defer resp.Body.Close()
 
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't read body of file from s3://%s/%s. %w", bucket, file, err)
+		return nil, fmt.Errorf("couldn't read body of file from s3://%s/%s. %w", cfg.bucket, file, err)
 	}
 
 	return raw, nil
@@ -324,12 +323,12 @@ func (cfg *cfg) save(inp *input, data *data) error {
 
 	file := fmt.Sprintf("%s.json", strings.ToLower(email))
 	_, err = cfg.s3.PutObject(cfg.ctx, &s3.PutObjectInput{
-		Bucket: &bucket,
+		Bucket: &cfg.bucket,
 		Key:    &file,
 		Body:   bytes.NewReader(raw),
 	})
 	if err != nil {
-		return fmt.Errorf("couldn't save state data to s3://%s/%s. %w", bucket, file, err)
+		return fmt.Errorf("couldn't save state data to s3://%s/%s. %w", cfg.bucket, file, err)
 	}
 
 	return nil
