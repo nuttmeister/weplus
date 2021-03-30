@@ -790,6 +790,9 @@ func random(comments []*comment, post *post) []string {
 		case "type":
 			switch comment.operand {
 			case "==":
+				if comment.value == "post" && !post.exercise {
+					return comment.comments
+				}
 				if comment.value == strings.ToLower(post.trainingType) {
 					return comment.comments
 				}
