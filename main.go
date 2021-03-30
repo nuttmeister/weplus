@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 )
 
 var (
+	commentRegexp  = regexp.MustCompile(`[ ]*(name|group|duration|type)[ ]*(==|<=|>=|<|>)[ ]*(.*)[ ]*`)
 	exerciseRegexp = regexp.MustCompile(`<strong><a href="/users/([0-9]{5})">(.*)</a></strong>[ \n]*</h3>[ \n]*<div class="post-group-name">(.*)</div>[ \n]*<p class="post-status-string"><a href="/statuses/([0-9]{7})"><i class="fas fa-check fa-xs"></i> ([0-9]*) minutes</a> <a class="exercise-type" href="/exercises\?exercise_type_name=.*">(.*)</a> <a class="ago-in-words ago timeago"`)
 	postRegexp     = regexp.MustCompile(`<strong><a href="/users/([0-9]{5})">(.*)</a></strong>[ \n]*</h3>[ \n]*<div class="post-group-name">(.*)</div>[ \n]*<p class="post-status-string"><a href="/statuses/([0-9]{7})"><i class="fas fa-check fa-xs"></i> Post</a>`)
 	userIDRegexp   = regexp.MustCompile(`<a href="/users/([0-9]{5})">[ \n]*<i class="fas fa-chart-bar"></i>[ \n]*My Statistics[ \n]*</a>`)
@@ -171,7 +173,7 @@ func (cfg *cfg) parse(inp *input) error {
 	return nil
 }
 
-func (cfg *cfg) processGroupFeeds(groupPosts []*post, data *data, comments [][]string, inp *input) ([]string, []string, error) {
+func (cfg *cfg) processGroupFeeds(groupPosts []*post, data *data, comments []*comment, inp *input) ([]string, []string, error) {
 	ids := []string{}
 	output := []string{}
 
@@ -181,15 +183,19 @@ func (cfg *cfg) processGroupFeeds(groupPosts []*post, data *data, comments [][]s
 			if err := cfg.like(post.postID); err != nil {
 				return nil, nil, err
 			}
-			for _, msg := range random(comments) {
-				fmt.Printf("commenting group: %s data: %+v\n", replaceComment(msg, post), *post)
-				if err := cfg.comment(post.postID, msg); err != nil {
-					return nil, nil, err
-				}
-			}
-			row := fmt.Sprintf("liking and commenting on group post: %s for %s\n", post.postID, inp.Email)
+			row := fmt.Sprintf("liking group post: %s for %s\n", post.postID, inp.Email)
 			output = append(output, row)
 			fmt.Printf(row)
+
+			for _, msg := range random(comments, post) {
+				comment := replaceComment(msg, post)
+				if err := cfg.comment(post.postID, comment); err != nil {
+					return nil, nil, err
+				}
+				row := fmt.Sprintf("commenting '%s' on group post: %s for %s\n", comment, post.postID, inp.Email)
+				output = append(output, row)
+				fmt.Printf(row)
+			}
 		}
 		if !doSeen {
 			ids = append(ids, post.postID)
@@ -198,7 +204,7 @@ func (cfg *cfg) processGroupFeeds(groupPosts []*post, data *data, comments [][]s
 	return ids, output, nil
 }
 
-func (cfg *cfg) processCompanyFeeds(companyPosts []*post, data *data, comments [][]string, inp *input) ([]string, []string, error) {
+func (cfg *cfg) processCompanyFeeds(companyPosts []*post, data *data, comments []*comment, inp *input) ([]string, []string, error) {
 	ids := []string{}
 	output := []string{}
 
@@ -206,15 +212,15 @@ func (cfg *cfg) processCompanyFeeds(companyPosts []*post, data *data, comments [
 		doLike, doComment, doSeen := doAction(post.postID, data.Company, *inp.LikeRatio, *inp.CommentRatio)
 		if doComment && !inp.MarkAsSeen {
 			doLike = true
-			for _, msg := range random(comments) {
-				fmt.Printf("commenting company: %s data: %+v\n", replaceComment(msg, post), *post)
-				if err := cfg.comment(post.postID, replaceComment(msg, post)); err != nil {
+			for _, msg := range random(comments, post) {
+				comment := replaceComment(msg, post)
+				if err := cfg.comment(post.postID, comment); err != nil {
 					return nil, nil, err
 				}
+				row := fmt.Sprintf("commenting '%s' on company post: %s for %s\n", comment, post.postID, inp.Email)
+				output = append(output, row)
+				fmt.Printf(row)
 			}
-			row := fmt.Sprintf("commenting on company post: %s for %s\n", post.postID, inp.Email)
-			output = append(output, row)
-			fmt.Printf(row)
 		}
 		if doLike && !inp.MarkAsSeen {
 			if err := cfg.like(post.postID); err != nil {
@@ -256,7 +262,7 @@ type data struct {
 	Company []string `json:"company"`
 }
 
-func (cfg *cfg) load(inp *input) (*data, [][]string, error) {
+func (cfg *cfg) load(inp *input) (*data, []*comment, error) {
 	email := strings.ToLower(inp.Email)
 	commentsFile := fmt.Sprintf("%s.comments.txt", email)
 	stateFile := fmt.Sprintf("%s.json", email)
@@ -267,15 +273,9 @@ func (cfg *cfg) load(inp *input) (*data, [][]string, error) {
 		return nil, nil, fmt.Errorf("couldn't read comment data. %w", err)
 	}
 
-	comments := [][]string{}
-	for _, commentPair := range strings.Split(string(rawComments), "\n") {
-		if commentPair != "" {
-			add := []string{}
-			for _, comment := range strings.Split(commentPair, ",") {
-				add = append(add, strings.TrimSpace(comment))
-			}
-			comments = append(comments, add)
-		}
+	comments, err := loadComments(rawComments)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	// Read personal state data.
@@ -296,6 +296,51 @@ func (cfg *cfg) load(inp *input) (*data, [][]string, error) {
 	}
 
 	return d, comments, nil
+}
+
+type comment struct {
+	key      string
+	operand  string
+	value    string
+	comments []string
+}
+
+func loadComments(raw []byte) ([]*comment, error) {
+	comments := []*comment{}
+
+	for _, commentPair := range strings.Split(string(raw), "\n") {
+		comment := &comment{}
+
+		rawComment := strings.Split(commentPair, "|")
+		// Continue if row doesn't contain valid data.
+		if len(rawComment) < 2 {
+			continue
+		}
+
+		expr := strings.ToLower(strings.TrimSpace(rawComment[0]))
+		if expr != "" {
+			// Exit if we found none empty but faulty expression.
+			matches := commentRegexp.FindStringSubmatch(expr)
+			if len(matches) != 4 {
+				return nil, fmt.Errorf("error in expression for comment row %s", rawComment)
+			}
+
+			comment.key = matches[1]
+			comment.operand = matches[2]
+			comment.value = matches[3]
+		}
+
+		for _, str := range rawComment[1:] {
+			str = strings.TrimSpace(str)
+			if str != "" {
+				comment.comments = append(comment.comments, str)
+			}
+		}
+
+		comments = append(comments, comment)
+	}
+
+	return comments, nil
 }
 
 func (cfg *cfg) download(file string) ([]byte, error) {
@@ -682,9 +727,78 @@ func doAction(id string, slice []string, likeRatio float64, commentRatio float64
 	return like, comment, doSeen
 }
 
-func random(comments [][]string) []string {
+func random(comments []*comment, post *post) []string {
 	rand.Seed(time.Now().UnixNano())
-	return comments[rand.Intn(len(comments))]
+
+	for i := 0; i < 50; i++ {
+		comment := comments[rand.Intn(len(comments))]
+
+		if comment.key == "" {
+			return comment.comments
+		}
+
+		switch comment.key {
+		case "name":
+			switch comment.operand {
+			case "==":
+				if comment.value == strings.ToLower(post.name) {
+					return comment.comments
+				}
+			}
+		case "group":
+			switch comment.operand {
+			case "==":
+				if comment.value == strings.ToLower(post.groupName) {
+					return comment.comments
+				}
+			}
+		case "duration":
+			exprDur, err := strconv.Atoi(comment.value)
+			if err != nil {
+				fmt.Printf("couldn't convert expression duration %s to int, continuing\n", comment.value)
+				continue
+			}
+
+			postDur, err := strconv.Atoi(post.trainingDuration)
+			if err != nil {
+				fmt.Printf("couldn't convert post duration %s to int, continuing\n", post.trainingDuration)
+				continue
+			}
+
+			switch comment.operand {
+			case "==":
+				if postDur == exprDur {
+					return comment.comments
+				}
+			case ">=":
+				if postDur >= exprDur {
+					return comment.comments
+				}
+			case ">":
+				if postDur > exprDur {
+					return comment.comments
+				}
+			case "<=":
+				if postDur <= exprDur {
+					return comment.comments
+				}
+			case "<":
+				if postDur < exprDur {
+					return comment.comments
+				}
+			}
+		case "type":
+			switch comment.operand {
+			case "==":
+				if comment.value == strings.ToLower(post.trainingType) {
+					return comment.comments
+				}
+			}
+		}
+	}
+
+	fmt.Printf("couldn't randomly select a comment in 50 tries for post: '%+v' ...\n", *post)
+	return []string{}
 }
 
 func checkOutput(output []string, inp *input) []string {
