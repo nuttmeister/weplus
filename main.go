@@ -735,6 +735,9 @@ func random(comments []*comment, post *post) []string {
 		random := rand.Intn(len(use))
 		comment := use[random]
 
+		// pop the used comment from use.
+		use = append(use[:random], use[random+1:]...)
+
 		if comment.key == "" {
 			return comment.comments
 		}
@@ -800,8 +803,6 @@ func random(comments []*comment, post *post) []string {
 				}
 			}
 		}
-
-		use = append(use[:random], use[random+1:]...)
 	}
 
 	fmt.Printf("couldn't randomly select a comment in 50 tries for post: '%+v' ...\n", *post)
