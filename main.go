@@ -24,9 +24,10 @@ import (
 )
 
 var (
-	postRegexp   = regexp.MustCompile(`<li id="s-([0-9]{7})">[A-Za-z0-9 <>="\-\n]*<a href="/users/([0-9]{5})">`)
-	userIDRegexp = regexp.MustCompile(`<a href="/users/([0-9]{5})">[ \n]*<i class="fas fa-chart-bar"></i>[ \n]*My Statistics[ \n]*</a>`)
-	tokenRegexp  = regexp.MustCompile(`<meta name="csrf-token" content="([A-Za-z0-9+/=]*)" />`)
+	exerciseRegexp = regexp.MustCompile(`<strong><a href="/users/([0-9]{5})">(.*)</a></strong>[ \n]*</h3>[ \n]*<div class="post-group-name">(.*)</div>[ \n]*<p class="post-status-string"><a href="/statuses/([0-9]{7})"><i class="fas fa-check fa-xs"></i> ([0-9]*) minutes</a> <a class="exercise-type" href="/exercises\?exercise_type_name=.*">(.*)</a> <a class="ago-in-words ago timeago"`)
+	postRegexp     = regexp.MustCompile(`<strong><a href="/users/([0-9]{5})">(.*)</a></strong>[ \n]*</h3>[ \n]*<div class="post-group-name">(.*)</div>[ \n]*<p class="post-status-string"><a href="/statuses/([0-9]{7})"><i class="fas fa-check fa-xs"></i> Post</a>`)
+	userIDRegexp   = regexp.MustCompile(`<a href="/users/([0-9]{5})">[ \n]*<i class="fas fa-chart-bar"></i>[ \n]*My Statistics[ \n]*</a>`)
+	tokenRegexp    = regexp.MustCompile(`<meta name="csrf-token" content="([A-Za-z0-9+/=]*)" />`)
 
 	defLikeRatio    = 1.0
 	defCommentRatio = 0.8
@@ -170,59 +171,61 @@ func (cfg *cfg) parse(inp *input) error {
 	return nil
 }
 
-func (cfg *cfg) processGroupFeeds(groupIds []string, data *data, comments [][]string, inp *input) ([]string, []string, error) {
+func (cfg *cfg) processGroupFeeds(groupPosts []*post, data *data, comments [][]string, inp *input) ([]string, []string, error) {
 	ids := []string{}
 	output := []string{}
 
-	for _, id := range groupIds {
-		doSeen := seen(id, data.Group)
+	for _, post := range groupPosts {
+		doSeen := seen(post.postID, data.Group)
 		if !doSeen && !inp.MarkAsSeen {
-			if err := cfg.like(id); err != nil {
+			if err := cfg.like(post.postID); err != nil {
 				return nil, nil, err
 			}
 			for _, msg := range random(comments) {
-				if err := cfg.comment(id, msg); err != nil {
+				fmt.Printf("commenting group: %s data: %+v\n", replaceComment(msg, post), *post)
+				if err := cfg.comment(post.postID, msg); err != nil {
 					return nil, nil, err
 				}
 			}
-			row := fmt.Sprintf("liking and commenting on group post: %s for %s\n", id, inp.Email)
+			row := fmt.Sprintf("liking and commenting on group post: %s for %s\n", post.postID, inp.Email)
 			output = append(output, row)
 			fmt.Printf(row)
 		}
 		if !doSeen {
-			ids = append(ids, id)
+			ids = append(ids, post.postID)
 		}
 	}
 	return ids, output, nil
 }
 
-func (cfg *cfg) processCompanyFeeds(companyIds []string, data *data, comments [][]string, inp *input) ([]string, []string, error) {
+func (cfg *cfg) processCompanyFeeds(companyPosts []*post, data *data, comments [][]string, inp *input) ([]string, []string, error) {
 	ids := []string{}
 	output := []string{}
 
-	for _, id := range companyIds {
-		doLike, doComment, doSeen := doAction(id, data.Company, *inp.LikeRatio, *inp.CommentRatio)
+	for _, post := range companyPosts {
+		doLike, doComment, doSeen := doAction(post.postID, data.Company, *inp.LikeRatio, *inp.CommentRatio)
 		if doComment && !inp.MarkAsSeen {
 			doLike = true
 			for _, msg := range random(comments) {
-				if err := cfg.comment(id, msg); err != nil {
+				fmt.Printf("commenting company: %s data: %+v\n", replaceComment(msg, post), *post)
+				if err := cfg.comment(post.postID, replaceComment(msg, post)); err != nil {
 					return nil, nil, err
 				}
 			}
-			row := fmt.Sprintf("commenting on company post: %s for %s\n", id, inp.Email)
+			row := fmt.Sprintf("commenting on company post: %s for %s\n", post.postID, inp.Email)
 			output = append(output, row)
 			fmt.Printf(row)
 		}
 		if doLike && !inp.MarkAsSeen {
-			if err := cfg.like(id); err != nil {
+			if err := cfg.like(post.postID); err != nil {
 				return nil, nil, err
 			}
-			row := fmt.Sprintf("liking company post: %s for %s\n", id, inp.Email)
+			row := fmt.Sprintf("liking company post: %s for %s\n", post.postID, inp.Email)
 			output = append(output, row)
 			fmt.Printf(row)
 		}
 		if !doSeen {
-			ids = append(ids, id)
+			ids = append(ids, post.postID)
 		}
 	}
 	return ids, output, nil
@@ -469,7 +472,17 @@ func (cfg *cfg) auth(username string, password string) error {
 	return nil
 }
 
-func (cfg *cfg) getFeed(prev []string, feedType string, sort string, filter string, query string, offset string) ([]string, error) {
+type post struct {
+	exercise         bool
+	postID           string
+	userID           string
+	name             string
+	groupName        string
+	trainingDuration string
+	trainingType     string
+}
+
+func (cfg *cfg) getFeed(prev []string, feedType string, sort string, filter string, query string, offset string) ([]*post, error) {
 	qs := url.Values{}
 	qs.Set("utf8", "✓")
 	qs.Set("type", feedType)
@@ -505,26 +518,42 @@ func (cfg *cfg) getFeed(prev []string, feedType string, sort string, filter stri
 
 	cfg.checkToken(body)
 
-	ids := []string{}
+	ids := []*post{}
 	done := false
 
-	idMatches := postRegexp.FindAllStringSubmatch(body, -1)
-	for _, match := range idMatches {
-		if len(match) != 3 {
-			fmt.Printf("something went wrong when matching feed. expected length to be 3 but bot %d\n", len(match))
+	exerciseMatches := exerciseRegexp.FindAllStringSubmatch(body, -1)
+	postMatches := postRegexp.FindAllStringSubmatch(body, -1)
+
+	for _, match := range append(exerciseMatches, postMatches...) {
+		data := &post{}
+		switch len(match) {
+		case 7:
+			data.trainingDuration = match[5]
+			data.trainingType = match[6]
+			data.exercise = true
+		case 5:
+		default:
+			fmt.Printf("something went wrong when matching feed. expected length to be 5 or 7 but got %d\n", len(match))
 			continue
 		}
-		if match[2] == cfg.userID {
+
+		data.postID = match[4]
+		data.userID = match[1]
+		data.name = match[2]
+		data.groupName = match[3]
+
+		// Skip commenting and liking your own posts.
+		if data.userID == cfg.userID {
 			continue
 		}
 
 		// If at least one of the ids has been seen we can stop
 		// downloading new posts since we sort on created at.
-		if seen(match[1], prev) {
+		if seen(data.postID, prev) {
 			done = true
 		}
 
-		ids = append(ids, match[1])
+		ids = append(ids, data)
 	}
 
 	// If done is true we can just return and not process anymore posts.
@@ -674,4 +703,12 @@ func checkOutput(output []string, inp *input) []string {
 	}
 
 	return output
+}
+
+func replaceComment(comment string, post *post) string {
+	str := strings.ReplaceAll(comment, "{{Name}}", post.name)
+	str = strings.ReplaceAll(str, "{{Group}}", post.groupName)
+	str = strings.ReplaceAll(str, "{{Duration}}", post.trainingDuration)
+	str = strings.ReplaceAll(str, "{{Type}}", post.trainingType)
+	return str
 }
