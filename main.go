@@ -728,10 +728,12 @@ func doAction(id string, slice []string, likeRatio float64, commentRatio float64
 }
 
 func random(comments []*comment, post *post) []string {
-	rand.Seed(time.Now().UnixNano())
+	use := append([]*comment{}, comments...)
 
 	for i := 0; i < 50; i++ {
-		comment := comments[rand.Intn(len(comments))]
+		rand.Seed(time.Now().UnixNano())
+		random := rand.Intn(len(use))
+		comment := use[random]
 
 		if comment.key == "" {
 			return comment.comments
@@ -798,6 +800,8 @@ func random(comments []*comment, post *post) []string {
 				}
 			}
 		}
+
+		use = append(use[:random], use[random+1:]...)
 	}
 
 	fmt.Printf("couldn't randomly select a comment in 50 tries for post: '%+v' ...\n", *post)
