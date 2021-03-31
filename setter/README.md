@@ -12,8 +12,8 @@ and what kms alias to use. This id done in the file `config.json`.
 ```json
 {
     "keyAlias": "alias/my-kms-key",
-    "FuncArn": "arn:aws:lambda:us-east-1:111111111111:function:my-function",
-    "Bucket": "my-bucket"
+    "funcArn": "arn:aws:lambda:us-east-1:111111111111:function:my-function",
+    "bucket": "my-bucket"
 }
 ```
 
