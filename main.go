@@ -807,7 +807,7 @@ func random(comments []*comment, post *post) []string {
 		}
 	}
 
-	fmt.Printf("couldn't randomly select a comment in 50 tries for post: '%+v' ...\n", *post)
+	fmt.Printf("couldn't randomly select a comment in 1000 tries for post: '%+v' ...\n", *post)
 	return []string{}
 }
 
