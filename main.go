@@ -730,27 +730,32 @@ func doAction(id string, slice []string, likeRatio float64, commentRatio float64
 }
 
 func random(comments []*comment, post *post) []string {
-	use := append([]*comment{}, comments...)
+	valid := validComments(comments, post)
+	if len(valid) == 0 {
+		fmt.Printf("no comments matched for post: '%+v'\n", *post)
+		return []string{}
+	}
 
-	for i := 0; i < 1000; i++ {
-		rand.Seed(time.Now().UnixNano())
-		random := rand.Intn(len(use))
-		comment := use[random]
+	rand.Seed(time.Now().UnixNano())
+	return valid[rand.Intn(len(valid))].comments
+}
 
-		// pop the used comment from use.
-		use = append(use[:random], use[random+1:]...)
+func validComments(comments []*comment, post *post) []*comment {
+	valid := []*comment{}
 
-		// If it's an none exercise post make sure it's an type == post comment!
-		// Otherwise continue until we find a match.
+	for _, comment := range comments {
+		// If the post is a none exercise post only mark "type == post" as valid.
 		if !post.exercise {
 			if comment.key == "type" && comment.operand == "==" && comment.value == "post" {
-				return comment.comments
+				valid = append(valid, comment)
 			}
 			continue
 		}
 
+		// If there was no expression just pass the comment.
 		if comment.key == "" && post.exercise {
-			return comment.comments
+			valid = append(valid, comment)
+			continue
 		}
 
 		switch comment.key {
@@ -758,14 +763,14 @@ func random(comments []*comment, post *post) []string {
 			switch comment.operand {
 			case "==":
 				if comment.value == strings.ToLower(post.name) {
-					return comment.comments
+					valid = append(valid, comment)
 				}
 			}
 		case "group":
 			switch comment.operand {
 			case "==":
 				if comment.value == strings.ToLower(post.groupName) {
-					return comment.comments
+					valid = append(valid, comment)
 				}
 			}
 		case "duration":
@@ -784,37 +789,36 @@ func random(comments []*comment, post *post) []string {
 			switch comment.operand {
 			case "==":
 				if postDur == exprDur {
-					return comment.comments
+					valid = append(valid, comment)
 				}
 			case ">=":
 				if postDur >= exprDur {
-					return comment.comments
+					valid = append(valid, comment)
 				}
 			case ">":
 				if postDur > exprDur {
-					return comment.comments
+					valid = append(valid, comment)
 				}
 			case "<=":
 				if postDur <= exprDur {
-					return comment.comments
+					valid = append(valid, comment)
 				}
 			case "<":
 				if postDur < exprDur {
-					return comment.comments
+					valid = append(valid, comment)
 				}
 			}
 		case "type":
 			switch comment.operand {
 			case "==":
 				if comment.value == strings.ToLower(post.trainingType) {
-					return comment.comments
+					valid = append(valid, comment)
 				}
 			}
 		}
 	}
 
-	fmt.Printf("couldn't randomly select a comment in 1000 tries for post: '%+v' ...\n", *post)
-	return []string{}
+	return valid
 }
 
 func checkOutput(output []string, inp *input) []string {
