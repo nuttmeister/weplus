@@ -721,7 +721,9 @@ func doAction(id string, slice []string, likeRatio float64, commentRatio float64
 		return false, false, doSeen
 	}
 
+	rand.Seed(time.Now().UnixNano())
 	like := rand.Float64() < likeRatio
+	rand.Seed(time.Now().UnixNano())
 	comment := rand.Float64() < commentRatio
 
 	return like, comment, doSeen
