@@ -299,10 +299,14 @@ func (cfg *cfg) load(inp *input) (*data, []*comment, error) {
 }
 
 type comment struct {
-	key      string
-	operand  string
-	value    string
-	comments []string
+	expressions []*expression
+	comments    []string
+}
+
+type expression struct {
+	key     string
+	operand string
+	value   string
 }
 
 func loadComments(raw []byte) ([]*comment, error) {
@@ -317,17 +321,21 @@ func loadComments(raw []byte) ([]*comment, error) {
 			continue
 		}
 
-		expr := strings.ToLower(strings.TrimSpace(rawComment[0]))
-		if expr != "" {
-			// Exit if we found none empty but faulty expression.
-			matches := commentRegexp.FindStringSubmatch(expr)
-			if len(matches) != 4 {
-				return nil, fmt.Errorf("error in expression for comment row %s", rawComment)
-			}
+		exprs := strings.ToLower(strings.TrimSpace(rawComment[0]))
+		if exprs != "" {
+			for _, expr := range strings.Split(exprs, "&&") {
+				// Exit if we found none empty but faulty expression.
+				matches := commentRegexp.FindStringSubmatch(expr)
+				if len(matches) != 4 {
+					return nil, fmt.Errorf("error in expression for comment row %s", rawComment)
+				}
 
-			comment.key = matches[1]
-			comment.operand = matches[2]
-			comment.value = matches[3]
+				comment.expressions = append(comment.expressions, &expression{
+					key:     strings.TrimSpace(matches[1]),
+					operand: strings.TrimSpace(matches[2]),
+					value:   strings.TrimSpace(matches[3]),
+				})
+			}
 		}
 
 		for _, str := range rawComment[1:] {
@@ -730,91 +738,117 @@ func doAction(id string, slice []string, likeRatio float64, commentRatio float64
 }
 
 func random(comments []*comment, post *post) []string {
-	use := append([]*comment{}, comments...)
+	valid := validComments(comments, post)
+	if len(valid) == 0 {
+		fmt.Printf("no comments matched for post: '%+v'\n", *post)
+		return []string{}
+	}
 
-	for i := 0; i < 1000; i++ {
-		rand.Seed(time.Now().UnixNano())
-		random := rand.Intn(len(use))
-		comment := use[random]
+	rand.Seed(time.Now().UnixNano())
+	return valid[rand.Intn(len(valid))].comments
+}
 
-		// pop the used comment from use.
-		use = append(use[:random], use[random+1:]...)
+func validComments(comments []*comment, post *post) []*comment {
+	valid := []*comment{}
 
-		// If it's an none exercise post make sure it's an type == post comment!
-		// Otherwise continue until we find a match.
-		if !post.exercise {
-			if comment.key == "type" && comment.operand == "==" && comment.value == "post" {
-				return comment.comments
-			}
-			continue
-		}
+	for _, comment := range comments {
+		add := false
 
-		if comment.key == "" && post.exercise {
-			return comment.comments
-		}
-
-		switch comment.key {
-		case "name":
-			switch comment.operand {
-			case "==":
-				if comment.value == strings.ToLower(post.name) {
-					return comment.comments
+		for _, expr := range comment.expressions {
+			// If the post is a none exercise post only mark "type == post" as valid.
+			if !post.exercise {
+				if expr.key == "type" && expr.operand == "==" && expr.value == "post" {
+					add = true
+					continue
 				}
-			}
-		case "group":
-			switch comment.operand {
-			case "==":
-				if comment.value == strings.ToLower(post.groupName) {
-					return comment.comments
-				}
-			}
-		case "duration":
-			exprDur, err := strconv.Atoi(comment.value)
-			if err != nil {
-				fmt.Printf("couldn't convert expression duration %s to int, continuing\n", comment.value)
+				add = false
 				continue
 			}
 
-			postDur, err := strconv.Atoi(post.trainingDuration)
-			if err != nil {
-				fmt.Printf("couldn't convert post duration %s to int, continuing\n", post.trainingDuration)
+			// If there was no expression just pass the comment.
+			if expr.key == "" && post.exercise {
+				add = true
 				continue
 			}
 
-			switch comment.operand {
-			case "==":
-				if postDur == exprDur {
-					return comment.comments
+			switch expr.key {
+			case "name":
+				switch expr.operand {
+				case "==":
+					if expr.value == strings.ToLower(post.name) {
+						add = true
+						continue
+					}
 				}
-			case ">=":
-				if postDur >= exprDur {
-					return comment.comments
+			case "group":
+				switch expr.operand {
+				case "==":
+					if expr.value == strings.ToLower(post.groupName) {
+						add = true
+						continue
+					}
 				}
-			case ">":
-				if postDur > exprDur {
-					return comment.comments
+			case "duration":
+				exprDur, err := strconv.Atoi(expr.value)
+				if err != nil {
+					add = false
+					fmt.Printf("couldn't convert expression duration %s to int, continuing\n", expr.value)
+					continue
 				}
-			case "<=":
-				if postDur <= exprDur {
-					return comment.comments
+
+				postDur, err := strconv.Atoi(post.trainingDuration)
+				if err != nil {
+					add = false
+					fmt.Printf("couldn't convert post duration %s to int, continuing\n", post.trainingDuration)
+					continue
 				}
-			case "<":
-				if postDur < exprDur {
-					return comment.comments
+
+				switch expr.operand {
+				case "==":
+					if postDur == exprDur {
+						add = true
+						continue
+					}
+				case ">=":
+					if postDur >= exprDur {
+						add = true
+						continue
+					}
+				case ">":
+					if postDur > exprDur {
+						add = true
+						continue
+					}
+				case "<=":
+					if postDur <= exprDur {
+						add = true
+						continue
+					}
+				case "<":
+					if postDur < exprDur {
+						add = true
+						continue
+					}
+				}
+			case "type":
+				switch expr.operand {
+				case "==":
+					if expr.value == strings.ToLower(post.trainingType) {
+						add = true
+						continue
+					}
 				}
 			}
-		case "type":
-			switch comment.operand {
-			case "==":
-				if comment.value == strings.ToLower(post.trainingType) {
-					return comment.comments
-				}
-			}
+
+			add = false
+		}
+
+		if add {
+			valid = append(valid, comment)
 		}
 	}
 
-	fmt.Printf("couldn't randomly select a comment in 1000 tries for post: '%+v' ...\n", *post)
-	return []string{}
+	return valid
 }
 
 func checkOutput(output []string, inp *input) []string {
