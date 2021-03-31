@@ -50,7 +50,13 @@ The following are supported:
 `{{Name}}` == Name of the poster  
 `{{Group}}` == Group the poster belongs to  
 `{{Type}}` == Workout type  
-`{{Duration}}` == Length in minutes of the workout  
+`{{Duration}}` == Length in minutes of the workout
+
+### Note on posts
+
+To support posts (they don't include all the metadata normal exercises do) you must at least have a few comments
+that have the expression `type == post` in them. It's the only way the function will now the comment
+doesn't include any substitutions for unsupported variables.
 
 ### Example file
 
@@ -69,6 +75,8 @@ duration > 120 | Damn... {{Duration}} minutes! You're going for the win! | 💪�
 duration > 60 | Really good and long workout! But is it enough to beat the us?
 name == Big Boss | Big Boss, you're awesome! 💪💪💪 Remember my kind words when it's time to talk salary!
 group == @Competitors | You are going down {{Group}}!
+type == post | 👍👍👍 | 🙌🙌
+type == post | 🙌🙌 | 👍👍
 ```
 
 ## Running

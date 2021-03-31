@@ -12,3 +12,5 @@ duration > 120 | Damn... {{Duration}} minutes! You're going for the win! | 💪�
 duration > 60 | Really good and long workout! But is it enough to beat the us?
 name == Big Boss | Big Boss, you're awesome! 💪💪💪 Remember my kind words when it's time to talk salary!
 group == @Competitors | You are going down {{Group}}!
+type == post | 👍👍👍 | 🙌🙌
+type == post | 🙌🙌 | 👍👍
