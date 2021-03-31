@@ -740,6 +740,15 @@ func random(comments []*comment, post *post) []string {
 		// pop the used comment from use.
 		use = append(use[:random], use[random+1:]...)
 
+		// If it's an none exercise post make sure it's an type == post comment!
+		// Otherwise continue until we find a match.
+		if !post.exercise {
+			if comment.key == "type" && comment.operand == "==" && comment.value == "post" {
+				return comment.comments
+			}
+			continue
+		}
+
 		if comment.key == "" && post.exercise {
 			return comment.comments
 		}
@@ -797,9 +806,6 @@ func random(comments []*comment, post *post) []string {
 		case "type":
 			switch comment.operand {
 			case "==":
-				if comment.value == "post" && !post.exercise {
-					return comment.comments
-				}
 				if comment.value == strings.ToLower(post.trainingType) {
 					return comment.comments
 				}
