@@ -752,22 +752,22 @@ func validComments(comments []*comment, post *post) []*comment {
 	valid := []*comment{}
 
 	for _, comment := range comments {
-		add := false
+		add := []bool{}
 
 		for _, expr := range comment.expressions {
 			// If the post is a none exercise post only mark "type == post" as valid.
 			if !post.exercise {
 				if expr.key == "type" && expr.operand == "==" && expr.value == "post" {
-					add = true
+					add = append(add, true)
 					continue
 				}
-				add = false
+				add = append(add, false)
 				continue
 			}
 
 			// If there was no expression just pass the comment.
 			if expr.key == "" && post.exercise {
-				add = true
+				add = append(add, true)
 				continue
 			}
 
@@ -776,7 +776,7 @@ func validComments(comments []*comment, post *post) []*comment {
 				switch expr.operand {
 				case "==":
 					if expr.value == strings.ToLower(post.name) {
-						add = true
+						add = append(add, true)
 						continue
 					}
 				}
@@ -784,21 +784,21 @@ func validComments(comments []*comment, post *post) []*comment {
 				switch expr.operand {
 				case "==":
 					if expr.value == strings.ToLower(post.groupName) {
-						add = true
+						add = append(add, true)
 						continue
 					}
 				}
 			case "duration":
 				exprDur, err := strconv.Atoi(expr.value)
 				if err != nil {
-					add = false
+					add = append(add, false)
 					fmt.Printf("couldn't convert expression duration %s to int, continuing\n", expr.value)
 					continue
 				}
 
 				postDur, err := strconv.Atoi(post.trainingDuration)
 				if err != nil {
-					add = false
+					add = append(add, false)
 					fmt.Printf("couldn't convert post duration %s to int, continuing\n", post.trainingDuration)
 					continue
 				}
@@ -806,27 +806,27 @@ func validComments(comments []*comment, post *post) []*comment {
 				switch expr.operand {
 				case "==":
 					if postDur == exprDur {
-						add = true
+						add = append(add, true)
 						continue
 					}
 				case ">=":
 					if postDur >= exprDur {
-						add = true
+						add = append(add, true)
 						continue
 					}
 				case ">":
 					if postDur > exprDur {
-						add = true
+						add = append(add, true)
 						continue
 					}
 				case "<=":
 					if postDur <= exprDur {
-						add = true
+						add = append(add, true)
 						continue
 					}
 				case "<":
 					if postDur < exprDur {
-						add = true
+						add = append(add, true)
 						continue
 					}
 				}
@@ -834,16 +834,16 @@ func validComments(comments []*comment, post *post) []*comment {
 				switch expr.operand {
 				case "==":
 					if expr.value == strings.ToLower(post.trainingType) {
-						add = true
+						add = append(add, true)
 						continue
 					}
 				}
 			}
 
-			add = false
+			add = append(add, false)
 		}
 
-		if add {
+		if isValid(add) {
 			valid = append(valid, comment)
 		}
 	}
@@ -875,4 +875,13 @@ func replaceComment(comment string, post *post) string {
 	str = strings.ReplaceAll(str, "{{Duration}}", post.trainingDuration)
 	str = strings.ReplaceAll(str, "{{Type}}", post.trainingType)
 	return str
+}
+
+func isValid(slice []bool) bool {
+	for _, cur := range slice {
+		if !cur {
+			return false
+		}
+	}
+	return true
 }
