@@ -2,9 +2,24 @@
 
 Quickly and easily set your password and upload your comments file to the we+ automator.
 
-## comments.txt
+## configuration
 
-Create a file called `comments.txt` that contains the comments you want to use for your user.  
+You must configure some basic information regarding what function to update and what bucket to upload files to
+and what kms alias to use. This id done in the file `config.json`.
+
+### config.json example
+
+```json
+{
+    "keyAlias": "alias/my-kms-key",
+    "FuncArn": "arn:aws:lambda:us-east-1:111111111111:function:my-function",
+    "Bucket": "my-bucket"
+}
+```
+
+## comments file
+
+Create a file called `comments.txt` (or whatever you want it to be called) that contains the comments you want to use for your user.  
 The file must be in the following format.
 
 The file must be in `LF` line endings. Otherwise the program will produce an error.
@@ -59,7 +74,38 @@ group == @Competitors | You are going down {{Group}}!
 ## Running
 
 Login in to your AWS account and make sure it's set as the default profile for the current shell.  
-Make sure you have saved the comments file as `comments.txt`.
+You can run the different commands below once at at a time or all together.
+
+the parameter `email` is always required.
+
+### Set Password
 
 ```shell
 ./setter --email 'my-email@example.com' --password 'my-password'
+```
+
+### Upload comments
+
+```shell
+./setter --email 'my-email@example.com' --comments comments.txt
+```
+
+### Create CW Event
+
+The default state of the created event is `DISABLED`.
+
+```shell
+./setter --email 'my-email@example.com' --create-event
+```
+
+### Enable CW Event
+
+```shell
+./setter --email 'my-email@example.com' --enable-event
+```
+
+### Disable CW Event
+
+```shell
+./setter --email 'my-email@example.com' --disable-event
+```
