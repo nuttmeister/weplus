@@ -2,3 +2,6 @@
 *.json
 *.zip
 handler
+!config.example.json
+!comments.example.txt
+setter/setter
