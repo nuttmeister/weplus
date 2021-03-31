@@ -40,7 +40,10 @@ The `duration` key supports `==`, `>=`, `<=` `>` and `<`.
 
 So to match on exercises over 90 minutes you would write `duration > 90`.
 
-Here is an example file.
+You can also have multiple expressions by chaning them together with `&&`.  
+Only `&&` (AND) is supported, so you cannot do OR any advanced checks with `(expr1 && expr2) || expr3`.
+
+For example `type == walking && duration > 90`.
 
 ### Variable substitution
 
@@ -73,6 +76,7 @@ duration > 60 | 👍🙌 | {{Duration}} minutes doing {{Type}}-workout 🙌🙌�
 duration > 90 | 👍👍👍 | Over 1,5h of workout! Thats really good!
 duration > 120 | Damn... {{Duration}} minutes! You're going for the win! | 💪💪💪
 duration > 60 | Really good and long workout! But is it enough to beat the us?
+duration >= 90 && type == yoga | Thats a long and good Yoga pass | 🙏🙏🙏
 name == Big Boss | Big Boss, you're awesome! 💪💪💪 Remember my kind words when it's time to talk salary!
 group == @Competitors | You are going down {{Group}}!
 type == post | 👍👍👍 | 🙌🙌
