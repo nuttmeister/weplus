@@ -299,10 +299,14 @@ func (cfg *cfg) load(inp *input) (*data, []*comment, error) {
 }
 
 type comment struct {
-	key      string
-	operand  string
-	value    string
-	comments []string
+	expressions []*expression
+	comments    []string
+}
+
+type expression struct {
+	key     string
+	operand string
+	value   string
 }
 
 func loadComments(raw []byte) ([]*comment, error) {
@@ -317,17 +321,21 @@ func loadComments(raw []byte) ([]*comment, error) {
 			continue
 		}
 
-		expr := strings.ToLower(strings.TrimSpace(rawComment[0]))
-		if expr != "" {
-			// Exit if we found none empty but faulty expression.
-			matches := commentRegexp.FindStringSubmatch(expr)
-			if len(matches) != 4 {
-				return nil, fmt.Errorf("error in expression for comment row %s", rawComment)
-			}
+		exprs := strings.ToLower(strings.TrimSpace(rawComment[0]))
+		if exprs != "" {
+			for _, expr := range strings.Split(exprs, "&&") {
+				// Exit if we found none empty but faulty expression.
+				matches := commentRegexp.FindStringSubmatch(expr)
+				if len(matches) != 4 {
+					return nil, fmt.Errorf("error in expression for comment row %s", rawComment)
+				}
 
-			comment.key = matches[1]
-			comment.operand = matches[2]
-			comment.value = matches[3]
+				comment.expressions = append(comment.expressions, &expression{
+					key:     matches[1],
+					operand: matches[2],
+					value:   matches[3],
+				})
+			}
 		}
 
 		for _, str := range rawComment[1:] {
@@ -744,77 +752,97 @@ func validComments(comments []*comment, post *post) []*comment {
 	valid := []*comment{}
 
 	for _, comment := range comments {
-		// If the post is a none exercise post only mark "type == post" as valid.
-		if !post.exercise {
-			if comment.key == "type" && comment.operand == "==" && comment.value == "post" {
-				valid = append(valid, comment)
+		add := false
+
+		for _, expr := range comment.expressions {
+			// If the post is a none exercise post only mark "type == post" as valid.
+			if !post.exercise {
+				if expr.key == "type" && expr.operand == "==" && expr.value == "post" {
+					add = true
+					continue
+				}
+				add = false
+				continue
 			}
-			continue
+
+			// If there was no expression just pass the comment.
+			if expr.key == "" && post.exercise {
+				add = true
+				continue
+			}
+
+			switch expr.key {
+			case "name":
+				switch expr.operand {
+				case "==":
+					if expr.value == strings.ToLower(post.name) {
+						add = true
+						continue
+					}
+				}
+			case "group":
+				switch expr.operand {
+				case "==":
+					if expr.value == strings.ToLower(post.groupName) {
+						add = true
+						continue
+					}
+				}
+			case "duration":
+				exprDur, err := strconv.Atoi(expr.value)
+				if err != nil {
+					fmt.Printf("couldn't convert expression duration %s to int, continuing\n", expr.value)
+					continue
+				}
+
+				postDur, err := strconv.Atoi(post.trainingDuration)
+				if err != nil {
+					fmt.Printf("couldn't convert post duration %s to int, continuing\n", post.trainingDuration)
+					continue
+				}
+
+				switch expr.operand {
+				case "==":
+					if postDur == exprDur {
+						add = true
+						continue
+					}
+				case ">=":
+					if postDur >= exprDur {
+						add = true
+						continue
+					}
+				case ">":
+					if postDur > exprDur {
+						add = true
+						continue
+					}
+				case "<=":
+					if postDur <= exprDur {
+						add = true
+						continue
+					}
+				case "<":
+					if postDur < exprDur {
+						add = true
+						continue
+					}
+				}
+			case "type":
+				switch expr.operand {
+				case "==":
+					if expr.value == strings.ToLower(post.trainingType) {
+						add = true
+						continue
+					}
+				}
+			}
+
+			add = false
 		}
 
-		// If there was no expression just pass the comment.
-		if comment.key == "" && post.exercise {
+		if add {
 			valid = append(valid, comment)
-			continue
-		}
-
-		switch comment.key {
-		case "name":
-			switch comment.operand {
-			case "==":
-				if comment.value == strings.ToLower(post.name) {
-					valid = append(valid, comment)
-				}
-			}
-		case "group":
-			switch comment.operand {
-			case "==":
-				if comment.value == strings.ToLower(post.groupName) {
-					valid = append(valid, comment)
-				}
-			}
-		case "duration":
-			exprDur, err := strconv.Atoi(comment.value)
-			if err != nil {
-				fmt.Printf("couldn't convert expression duration %s to int, continuing\n", comment.value)
-				continue
-			}
-
-			postDur, err := strconv.Atoi(post.trainingDuration)
-			if err != nil {
-				fmt.Printf("couldn't convert post duration %s to int, continuing\n", post.trainingDuration)
-				continue
-			}
-
-			switch comment.operand {
-			case "==":
-				if postDur == exprDur {
-					valid = append(valid, comment)
-				}
-			case ">=":
-				if postDur >= exprDur {
-					valid = append(valid, comment)
-				}
-			case ">":
-				if postDur > exprDur {
-					valid = append(valid, comment)
-				}
-			case "<=":
-				if postDur <= exprDur {
-					valid = append(valid, comment)
-				}
-			case "<":
-				if postDur < exprDur {
-					valid = append(valid, comment)
-				}
-			}
-		case "type":
-			switch comment.operand {
-			case "==":
-				if comment.value == strings.ToLower(post.trainingType) {
-					valid = append(valid, comment)
-				}
-			}
 		}
 	}
 
