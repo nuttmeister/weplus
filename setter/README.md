@@ -47,10 +47,10 @@ Here is an example file.
 You can substitute variables in the comments with data from the post.  
 The following are supported:
 
-`{{Name}}` == Name of the poster
-`{{Group}}` == Group the poster belongs to
-`{{Type}}` == Workout type
-`{{Duration}}` == Length in minutes of the workout
+`{{Name}}` == Name of the poster  
+`{{Group}}` == Group the poster belongs to  
+`{{Type}}` == Workout type  
+`{{Duration}}` == Length in minutes of the workout  
 
 ### Example file
 
