@@ -331,9 +331,9 @@ func loadComments(raw []byte) ([]*comment, error) {
 				}
 
 				comment.expressions = append(comment.expressions, &expression{
-					key:     matches[1],
-					operand: matches[2],
-					value:   matches[3],
+					key:     strings.TrimSpace(matches[1]),
+					operand: strings.TrimSpace(matches[2]),
+					value:   strings.TrimSpace(matches[3]),
 				})
 			}
 		}
@@ -791,12 +791,14 @@ func validComments(comments []*comment, post *post) []*comment {
 			case "duration":
 				exprDur, err := strconv.Atoi(expr.value)
 				if err != nil {
+					add = false
 					fmt.Printf("couldn't convert expression duration %s to int, continuing\n", expr.value)
 					continue
 				}
 
 				postDur, err := strconv.Atoi(post.trainingDuration)
 				if err != nil {
+					add = false
 					fmt.Printf("couldn't convert post duration %s to int, continuing\n", post.trainingDuration)
 					continue
 				}
