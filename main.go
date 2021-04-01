@@ -789,15 +789,16 @@ func random(comments []*comment, post *post) []string {
 
 func validComments(comments []*comment, post *post) []*comment {
 	valid := []*comment{}
+	curWeight := 0
 
-	for _, comment := range comments {
+	for _, comnt := range comments {
 		// If expression is empty and it's post or group don't add.
-		if len(comment.expressions) == 0 && (!post.exercise || post.group) {
+		if len(comnt.expressions) == 0 && (!post.exercise || post.group) {
 			continue
 		}
 
 		add := []bool{}
-		for _, expr := range comment.expressions {
+		for _, expr := range comnt.expressions {
 			// Hand group exercises and group post by only allowing "type == group" and "type == group-post".
 			if post.group {
 				switch {
@@ -938,7 +939,15 @@ func validComments(comments []*comment, post *post) []*comment {
 		}
 
 		if isValid(add) {
-			valid = append(valid, comment)
+			// Either reset valid or add depending on weight.
+			// If weight is lower than current don't add.
+			switch {
+			case comnt.weight > curWeight:
+				valid = []*comment{comnt}
+				curWeight = comnt.weight
+			case comnt.weight == curWeight:
+				valid = append(valid, comnt)
+			}
 		}
 	}
 
