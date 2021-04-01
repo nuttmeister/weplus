@@ -24,10 +24,15 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
+const (
+	dateFormat = "Mon, 02 Jan 2006 15:04:05 -0700"
+	timeFormat = "15:04"
+)
+
 var (
-	commentRegexp  = regexp.MustCompile(`[ ]*(name|group|duration|type)[ ]*(==|<=|>=|<|>)[ ]*(.*)[ ]*`)
-	exerciseRegexp = regexp.MustCompile(`<strong><a href="/users/([0-9]{5})">(.*)</a></strong>[ \n]*</h3>[ \n]*<div class="post-group-name">(.*)</div>[ \n]*<p class="post-status-string"><a href="/statuses/([0-9]{7})"><i class="fas fa-check fa-xs"></i> ([0-9]*) minutes</a> <a class="exercise-type" href="/exercises\?exercise_type_name=.*">(.*)</a> <a class="ago-in-words ago timeago"`)
-	postRegexp     = regexp.MustCompile(`<strong><a href="/users/([0-9]{5})">(.*)</a></strong>[ \n]*</h3>[ \n]*<div class="post-group-name">(.*)</div>[ \n]*<p class="post-status-string"><a href="/statuses/([0-9]{7})"><i class="fas fa-check fa-xs"></i> Post</a>`)
+	commentRegexp  = regexp.MustCompile(`[ ]*(name|group|duration|type|time)[ ]*(==|<=|>=|<|>)[ ]*(.*)[ ]*`)
+	exerciseRegexp = regexp.MustCompile(`<strong><a href="/users/([0-9]{5})">(.*)</a></strong>[ \n]*</h3>[ \n]*<div class="post-group-name">(.*)</div>[ \n]*<p class="post-status-string"><a href="/statuses/([0-9]{7})"><i class="fas fa-check fa-xs"></i> ([0-9]*) minutes</a> [A-Za-z0-9 <>/":=.,]*<a class="exercise-type" href="/exercises\?exercise_type_name=.*">(.*)</a> <a class="ago-in-words ago timeago" title="[A-Za-z0-9]* ago" id="exercise-[0-9]{7}-happened-at-ago" data-toggle-id="exercise-[0-9]{7}-happened-at-exact-time">[A-Za-z0-9 ]*</a><a class="ago-in-words exact-time" title="[0-9 \-:\+]*"* id="exercise-[0-9]{7}-happened-at-exact-time" data-toggle-id="exercise-[0-9]{7}-happened-at-ago">([A-Z-a-z0-9, :\+\-]*)</a>`)
+	postRegexp     = regexp.MustCompile(`<strong><a href="/users/([0-9]{5})">(.*)</a></strong>[ \n]*</h3>[ \n]*<div class="post-group-name">(.*)</div>[ \n]*<p class="post-status-string"><a href="/statuses/([0-9]{7})"><i class="fas fa-check fa-xs"></i> Post</a> <a class="ago-in-words ago timeago" id="post-[0-9]{7}-happened-at-ago" data-toggle-id="post-[0-9]{7}-happened-at-exact-time" title="[A-Za-z0-9]* ago">[A-Za-z0-9 ]*</a><a class="ago-in-words exact-time" id="post-[0-9]{7}-happened-at-exact-time" data-toggle-id="post-[0-9]{7}-happened-at-ago">([A-Z-a-z0-9, :\+\-]*)</a>`)
 	userIDRegexp   = regexp.MustCompile(`<a href="/users/([0-9]{5})">[ \n]*<i class="fas fa-chart-bar"></i>[ \n]*My Statistics[ \n]*</a>`)
 	tokenRegexp    = regexp.MustCompile(`<meta name="csrf-token" content="([A-Za-z0-9+/=]*)" />`)
 
@@ -528,6 +533,7 @@ func (cfg *cfg) auth(username string, password string) error {
 type post struct {
 	group            bool
 	exercise         bool
+	date             time.Time
 	postID           string
 	userID           string
 	name             string
@@ -581,14 +587,18 @@ func (cfg *cfg) getFeed(prev []string, feedType string, sort string, filter stri
 
 	for _, match := range append(exerciseMatches, postMatches...) {
 		data := &post{}
+		rawDate := ""
+
 		switch len(match) {
-		case 7:
+		case 8:
 			data.trainingDuration = match[5]
 			data.trainingType = match[6]
+			rawDate = match[7]
 			data.exercise = true
-		case 5:
+		case 6:
+			rawDate = match[5]
 		default:
-			fmt.Printf("something went wrong when matching feed. expected length to be 5 or 7 but got %d\n", len(match))
+			fmt.Printf("something went wrong when matching feed. expected length to be 6 or 8 but got %d\n", len(match))
 			continue
 		}
 
@@ -596,6 +606,13 @@ func (cfg *cfg) getFeed(prev []string, feedType string, sort string, filter stri
 		data.userID = match[1]
 		data.name = match[2]
 		data.groupName = match[3]
+
+		date, err := time.Parse(dateFormat, rawDate)
+		if err != nil {
+			fmt.Printf("couldn't parse date from string %s for post id %s. skipping", rawDate, data.postID)
+			continue
+		}
+		data.date = date
 
 		// Mark group feed as group post.
 		if feedType == "group" {
@@ -855,6 +872,43 @@ func validComments(comments []*comment, post *post) []*comment {
 					}
 				case "<":
 					if postDur < exprDur {
+						add = append(add, true)
+						continue
+					}
+				}
+			case "time":
+				exprDate, err := time.Parse(timeFormat, expr.value)
+				if err != nil {
+					add = append(add, false)
+					fmt.Printf("couldn't convert expression time %s to time.Time, continuing\n", post.date)
+					continue
+				}
+				exprSeconds := (exprDate.UTC().Hour() * 60) + exprDate.Minute()
+				postSeconds := (post.date.UTC().Hour() * 60) + post.date.Minute()
+
+				switch expr.operand {
+				case "==":
+					if postSeconds == exprSeconds {
+						add = append(add, true)
+						continue
+					}
+				case ">=":
+					if postSeconds >= exprSeconds {
+						add = append(add, true)
+						continue
+					}
+				case ">":
+					if postSeconds > exprSeconds {
+						add = append(add, true)
+						continue
+					}
+				case "<=":
+					if postSeconds <= exprSeconds {
+						add = append(add, true)
+						continue
+					}
+				case "<":
+					if postSeconds < exprSeconds {
 						add = append(add, true)
 						continue
 					}
