@@ -88,7 +88,8 @@ The following are supported:
 `{{Name}}` == Name of the poster  
 `{{Group}}` == Group the poster belongs to  
 `{{Type}}` == Workout type  
-`{{Duration}}` == Length in minutes of the workout
+`{{Duration}}` == Length in minutes of the workout  
+`{{Time}}` == Time in UTC when the workout was done
 
 ### Example file
 

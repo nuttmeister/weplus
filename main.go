@@ -973,9 +973,15 @@ func checkOutput(output []string, inp *input) []string {
 
 func replaceComment(comment string, post *post) string {
 	str := strings.ReplaceAll(comment, "{{Name}}", post.name)
+	str = strings.ReplaceAll(str, "{{name}}", post.name)
 	str = strings.ReplaceAll(str, "{{Group}}", post.groupName)
+	str = strings.ReplaceAll(str, "{{group}}", post.groupName)
 	str = strings.ReplaceAll(str, "{{Duration}}", post.trainingDuration)
+	str = strings.ReplaceAll(str, "{{duration}}", post.trainingDuration)
 	str = strings.ReplaceAll(str, "{{Type}}", post.trainingType)
+	str = strings.ReplaceAll(str, "{{type}}", post.trainingType)
+	str = strings.ReplaceAll(str, "{{Time}}", post.date.Format(timeFormat))
+	str = strings.ReplaceAll(str, "{{time}}", post.date.Format(timeFormat))
 	return str
 }
 
