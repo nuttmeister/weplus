@@ -572,6 +572,7 @@ func (cfg *cfg) getFeed(prev []string, feedType string, sort string, filter stri
 	cfg.checkToken(body)
 
 	ids := []*post{}
+	added := []string{}
 	done := false
 
 	exerciseMatches := exerciseRegexp.FindAllStringSubmatch(body, -1)
@@ -606,7 +607,11 @@ func (cfg *cfg) getFeed(prev []string, feedType string, sort string, filter stri
 			done = true
 		}
 
-		ids = append(ids, data)
+		// Check for duplicates in the dataset.
+		if !seen(data.postID, added) {
+			ids = append(ids, data)
+			added = append(added, data.postID)
+		}
 	}
 
 	// If done is true we can just return and not process anymore posts.
