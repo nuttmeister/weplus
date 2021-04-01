@@ -304,6 +304,7 @@ func (cfg *cfg) load(inp *input) (*data, []*comment, error) {
 }
 
 type comment struct {
+	weight      int
 	expressions []*expression
 	comments    []string
 }
@@ -322,11 +323,21 @@ func loadComments(raw []byte) ([]*comment, error) {
 
 		rawComment := strings.Split(commentPair, "|")
 		// Continue if row doesn't contain valid data.
-		if len(rawComment) < 2 {
+		if len(rawComment) < 3 {
 			continue
 		}
 
-		exprs := strings.ToLower(strings.TrimSpace(rawComment[0]))
+		comment.weight = 0
+		rawWeight := strings.TrimSpace(rawComment[0])
+		if rawWeight != "" {
+			weight, err := strconv.Atoi(rawWeight)
+			if err != nil {
+				return nil, fmt.Errorf("couldn't convert weight %s to int. %w", rawWeight, err)
+			}
+			comment.weight = weight
+		}
+
+		exprs := strings.ToLower(strings.TrimSpace(rawComment[1]))
 		if exprs != "" {
 			for _, expr := range strings.Split(exprs, "&&") {
 				// Exit if we found none empty but faulty expression.
@@ -343,7 +354,7 @@ func loadComments(raw []byte) ([]*comment, error) {
 			}
 		}
 
-		for _, str := range rawComment[1:] {
+		for _, str := range rawComment[2:] {
 			str = strings.TrimSpace(str)
 			if str != "" {
 				comment.comments = append(comment.comments, str)
