@@ -763,8 +763,12 @@ func validComments(comments []*comment, post *post) []*comment {
 	valid := []*comment{}
 
 	for _, comment := range comments {
-		add := []bool{}
+		// If expression is empty and it's post or group don't add.
+		if len(comment.expressions) == 0 && (!post.exercise || post.group) {
+			continue
+		}
 
+		add := []bool{}
 		for _, expr := range comment.expressions {
 			// Hand group exercises and group post by only allowing "type == group" and "type == group-post".
 			if post.group {
@@ -779,8 +783,8 @@ func validComments(comments []*comment, post *post) []*comment {
 				continue
 			}
 
-			// If the post is a none exercise post only mark "type == post" as valid and make sure it's not a group post.
-			if !post.exercise && !post.group {
+			// If the post is a none exercise post only mark "type == post" as valid.
+			if !post.exercise {
 				switch {
 				case expr.key == "type" && expr.operand == "==" && expr.value == "post":
 					add = append(add, true)
