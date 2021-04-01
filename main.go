@@ -327,7 +327,6 @@ func loadComments(raw []byte) ([]*comment, error) {
 			continue
 		}
 
-		comment.weight = 0
 		rawWeight := strings.TrimSpace(rawComment[0])
 		if rawWeight != "" {
 			weight, err := strconv.Atoi(rawWeight)
