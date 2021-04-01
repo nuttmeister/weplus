@@ -45,6 +45,19 @@ Only `&&` (AND) is supported, so you cannot do OR any advanced checks with `(exp
 
 For example `type == walking && duration > 90`.
 
+### Posts (None exercise posts)
+
+To support posts (they don't include all the metadata normal exercises do) you must at least have a few comments
+that have the expression `type == post` in them. It's the only way the function will now the comment
+doesn't include any substitutions for unsupported variables.
+
+### Group Exercises / Group Posts (None exercise posts)
+
+To support group comments, because you might want something else than the normal comments or in a different language.  
+You will need to have comments as `type == group` (for group exercise entries) and `type == group-post`, if no comments
+with these expression exists no comment will be made on the group feed.  
+If it's a `group-post` entry the same limitation as the regular `post` (as stated above) apply.
+
 ### Variable substitution
 
 You can substitute variables in the comments with data from the post.  
@@ -54,12 +67,6 @@ The following are supported:
 `{{Group}}` == Group the poster belongs to  
 `{{Type}}` == Workout type  
 `{{Duration}}` == Length in minutes of the workout
-
-### Note on posts
-
-To support posts (they don't include all the metadata normal exercises do) you must at least have a few comments
-that have the expression `type == post` in them. It's the only way the function will now the comment
-doesn't include any substitutions for unsupported variables.
 
 ### Example file
 
