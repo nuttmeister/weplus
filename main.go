@@ -526,6 +526,7 @@ func (cfg *cfg) auth(username string, password string) error {
 }
 
 type post struct {
+	group            bool
 	exercise         bool
 	postID           string
 	userID           string
@@ -595,6 +596,11 @@ func (cfg *cfg) getFeed(prev []string, feedType string, sort string, filter stri
 		data.userID = match[1]
 		data.name = match[2]
 		data.groupName = match[3]
+
+		// Mark group feed as group post.
+		if feedType == "group" {
+			data.group = true
+		}
 
 		// Skip commenting and liking your own posts.
 		if data.userID == cfg.userID {
@@ -760,13 +766,27 @@ func validComments(comments []*comment, post *post) []*comment {
 		add := []bool{}
 
 		for _, expr := range comment.expressions {
-			// If the post is a none exercise post only mark "type == post" as valid.
-			if !post.exercise {
-				if expr.key == "type" && expr.operand == "==" && expr.value == "post" {
+			// Hand group exercises and group post by only allowing "type == group" and "type == group-post".
+			if post.group {
+				switch {
+				case expr.key == "type" && expr.operand == "==" && expr.value == "group" && post.exercise:
 					add = append(add, true)
-					continue
+				case expr.key == "type" && expr.operand == "==" && expr.value == "group-post" && !post.exercise:
+					add = append(add, true)
+				default:
+					add = append(add, false)
 				}
-				add = append(add, false)
+				continue
+			}
+
+			// If the post is a none exercise post only mark "type == post" as valid and make sure it's not a group post.
+			if !post.exercise && !post.group {
+				switch {
+				case expr.key == "type" && expr.operand == "==" && expr.value == "post":
+					add = append(add, true)
+				default:
+					add = append(add, false)
+				}
 				continue
 			}
 
