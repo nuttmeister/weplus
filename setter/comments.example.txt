@@ -1,17 +1,19 @@
-| 👍👍👍 | 🙌🙌
-| 💪💪 | Keep it up!
-| 🙌 👍
-| One step closer to victory!
-| 👍👍👍, Good job! {{Duration}} minutes closer to victory! (But we will win... 😅)
-| 🙌🙌🙌
-| 🙌🙌🙌 | Always good with some {{Type}}-workout!
-duration < 45 | 👍 | Doing good!
-duration > 60 | 👍🙌 | {{Duration}} minutes doing {{Type}}-workout 🙌🙌🙌
-duration > 90 | 👍👍👍 | Over 1,5h of workout! Thats really good!
-duration > 120 | Damn... {{Duration}} minutes! You're going for the win! | 💪💪💪
-duration > 60 | Really good and long workout! But is it enough to beat the us?
-duration >= 90 && type == yoga | Thats a long and good Yoga pass | 🙏🙏🙏
-name == Big Boss | Big Boss, you're awesome! 💪💪💪 Remember my kind words when it's time to talk salary!
-group == @Competitors | You are going down {{Group}}!
-type == post | 👍👍👍 | 🙌🙌
-type == post | 🙌🙌 | 👍👍
+|| 👍👍👍 | 🙌🙌
+|| 💪💪 | Keep it up!
+|| 🙌 👍
+|| One step closer to victory!
+|| 👍👍👍, Good job! {{Duration}} minutes closer to victory! (But we will win... 😅)
+|| 🙌🙌🙌
+|| 🙌🙌🙌 | Always good with some {{Type}}-workout!
+|duration < 45 | 👍 | Doing good!
+|duration > 60 | 👍🙌 | {{Duration}} minutes doing {{Type}}-workout 🙌🙌🙌
+|duration > 90 | 👍👍👍 | Over 1,5h of workout! Thats really good!
+100 | duration > 120 | Damn... {{Duration}} minutes! You're going for the win! | 💪💪💪
+100 | duration > 60 | Really good and long workout! But is it enough to beat the us?
+| duration >= 90 && type == yoga | Thats a long and good Yoga pass | 🙏🙏🙏
+100 | name == Big Boss | Big Boss, you're awesome! 💪💪💪 Remember my kind words when it's time to talk salary!
+100 | group == @Competitors | You are going down {{Group}}!
+| type == post | 👍👍👍 | 🙌🙌
+| type == post | 🙌🙌 | 👍👍
+| type == group-post | 💪💪💪 | Lets go boys and girls!
+| type == group | 🙌🙌🙌 | {{Duration}} minutes! Lets win this!

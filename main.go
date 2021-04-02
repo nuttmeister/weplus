@@ -30,7 +30,7 @@ const (
 )
 
 var (
-	commentRegexp  = regexp.MustCompile(`[ ]*(name|group|duration|type|time)[ ]*(==|<=|>=|<|>)[ ]*(.*)[ ]*`)
+	commentRegexp  = regexp.MustCompile(`[ ]*(name|group|duration|type|time)[ ]*(==|<=|>=|<|>|~|!=|!~)[ ]*(.*)[ ]*`)
 	exerciseRegexp = regexp.MustCompile(`<strong><a href="/users/([0-9]{5})">(.*)</a></strong>[ \n]*</h3>[ \n]*<div class="post-group-name">(.*)</div>[ \n]*<p class="post-status-string"><a href="/statuses/([0-9]{7})"><i class="fas fa-check fa-xs"></i> ([0-9]*) minutes</a> [A-Za-z0-9 <>/":=.,]*<a class="exercise-type" href="/exercises\?exercise_type_name=.*">(.*)</a> <a class="ago-in-words ago timeago" title="[A-Za-z0-9 :\-\+]*" id="exercise-[0-9]{7}-happened-at-ago" data-toggle-id="exercise-[0-9]{7}-happened-at-exact-time">[A-Za-z0-9 ]*</a><a class="ago-in-words exact-time" title="[0-9 \-:\+]*"* id="exercise-[0-9]{7}-happened-at-exact-time" data-toggle-id="exercise-[0-9]{7}-happened-at-ago">([A-Z-a-z0-9, :\+\-]*)</a>`)
 	postRegexp     = regexp.MustCompile(`<strong><a href="/users/([0-9]{5})">(.*)</a></strong>[ \n]*</h3>[ \n]*<div class="post-group-name">(.*)</div>[ \n]*<p class="post-status-string"><a href="/statuses/([0-9]{7})"><i class="fas fa-check fa-xs"></i> Post</a> <a class="ago-in-words ago timeago" id="post-[0-9]{7}-happened-at-ago" data-toggle-id="post-[0-9]{7}-happened-at-exact-time">[A-Za-z0-9 ]*</a><a class="ago-in-words exact-time" id="post-[0-9]{7}-happened-at-exact-time" data-toggle-id="post-[0-9]{7}-happened-at-ago">([A-Z-a-z0-9, :\+\-]*)</a>`)
 	userIDRegexp   = regexp.MustCompile(`<a href="/users/([0-9]{5})">[ \n]*<i class="fas fa-chart-bar"></i>[ \n]*My Statistics[ \n]*</a>`)
@@ -304,6 +304,7 @@ func (cfg *cfg) load(inp *input) (*data, []*comment, error) {
 }
 
 type comment struct {
+	weight      int
 	expressions []*expression
 	comments    []string
 }
@@ -322,11 +323,20 @@ func loadComments(raw []byte) ([]*comment, error) {
 
 		rawComment := strings.Split(commentPair, "|")
 		// Continue if row doesn't contain valid data.
-		if len(rawComment) < 2 {
+		if len(rawComment) < 3 {
 			continue
 		}
 
-		exprs := strings.ToLower(strings.TrimSpace(rawComment[0]))
+		rawWeight := strings.TrimSpace(rawComment[0])
+		if rawWeight != "" {
+			weight, err := strconv.Atoi(rawWeight)
+			if err != nil {
+				return nil, fmt.Errorf("couldn't convert weight %s to int. %w", rawWeight, err)
+			}
+			comment.weight = weight
+		}
+
+		exprs := strings.ToLower(strings.TrimSpace(rawComment[1]))
 		if exprs != "" {
 			for _, expr := range strings.Split(exprs, "&&") {
 				// Exit if we found none empty but faulty expression.
@@ -343,7 +353,7 @@ func loadComments(raw []byte) ([]*comment, error) {
 			}
 		}
 
-		for _, str := range rawComment[1:] {
+		for _, str := range rawComment[2:] {
 			str = strings.TrimSpace(str)
 			if str != "" {
 				comment.comments = append(comment.comments, str)
@@ -778,15 +788,16 @@ func random(comments []*comment, post *post) []string {
 
 func validComments(comments []*comment, post *post) []*comment {
 	valid := []*comment{}
+	curWeight := 0
 
-	for _, comment := range comments {
+	for _, comnt := range comments {
 		// If expression is empty and it's post or group don't add.
-		if len(comment.expressions) == 0 && (!post.exercise || post.group) {
+		if len(comnt.expressions) == 0 && (!post.exercise || post.group) {
 			continue
 		}
 
 		add := []bool{}
-		for _, expr := range comment.expressions {
+		for _, expr := range comnt.expressions {
 			// Hand group exercises and group post by only allowing "type == group" and "type == group-post".
 			if post.group {
 				switch {
@@ -825,11 +836,41 @@ func validComments(comments []*comment, post *post) []*comment {
 						add = append(add, true)
 						continue
 					}
+				case "~":
+					if strings.Contains(strings.ToLower(post.name), expr.value) {
+						add = append(add, true)
+						continue
+					}
+				case "!=":
+					if expr.value != strings.ToLower(post.name) {
+						add = append(add, true)
+						continue
+					}
+				case "!~":
+					if !strings.Contains(strings.ToLower(post.name), expr.value) {
+						add = append(add, true)
+						continue
+					}
 				}
 			case "group":
 				switch expr.operand {
 				case "==":
 					if expr.value == strings.ToLower(post.groupName) {
+						add = append(add, true)
+						continue
+					}
+				case "~":
+					if strings.Contains(strings.ToLower(post.groupName), expr.value) {
+						add = append(add, true)
+						continue
+					}
+				case "!=":
+					if expr.value != strings.ToLower(post.groupName) {
+						add = append(add, true)
+						continue
+					}
+				case "!~":
+					if !strings.Contains(strings.ToLower(post.groupName), expr.value) {
 						add = append(add, true)
 						continue
 					}
@@ -920,6 +961,21 @@ func validComments(comments []*comment, post *post) []*comment {
 						add = append(add, true)
 						continue
 					}
+				case "~":
+					if strings.Contains(strings.ToLower(post.trainingType), expr.value) {
+						add = append(add, true)
+						continue
+					}
+				case "!=":
+					if expr.value != strings.ToLower(post.trainingType) {
+						add = append(add, true)
+						continue
+					}
+				case "!~":
+					if !strings.Contains(strings.ToLower(post.trainingType), expr.value) {
+						add = append(add, true)
+						continue
+					}
 				}
 			}
 
@@ -927,7 +983,15 @@ func validComments(comments []*comment, post *post) []*comment {
 		}
 
 		if isValid(add) {
-			valid = append(valid, comment)
+			// Either reset valid or add depending on weight.
+			// If weight is lower than current don't add.
+			switch {
+			case comnt.weight > curWeight:
+				valid = []*comment{comnt}
+				curWeight = comnt.weight
+			case comnt.weight == curWeight:
+				valid = append(valid, comnt)
+			}
 		}
 	}
 
@@ -954,9 +1018,15 @@ func checkOutput(output []string, inp *input) []string {
 
 func replaceComment(comment string, post *post) string {
 	str := strings.ReplaceAll(comment, "{{Name}}", post.name)
+	str = strings.ReplaceAll(str, "{{name}}", post.name)
 	str = strings.ReplaceAll(str, "{{Group}}", post.groupName)
+	str = strings.ReplaceAll(str, "{{group}}", post.groupName)
 	str = strings.ReplaceAll(str, "{{Duration}}", post.trainingDuration)
+	str = strings.ReplaceAll(str, "{{duration}}", post.trainingDuration)
 	str = strings.ReplaceAll(str, "{{Type}}", post.trainingType)
+	str = strings.ReplaceAll(str, "{{type}}", post.trainingType)
+	str = strings.ReplaceAll(str, "{{Time}}", post.date.Format(timeFormat))
+	str = strings.ReplaceAll(str, "{{time}}", post.date.Format(timeFormat))
 	return str
 }
 
