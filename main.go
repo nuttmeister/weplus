@@ -836,11 +836,41 @@ func validComments(comments []*comment, post *post) []*comment {
 						add = append(add, true)
 						continue
 					}
+				case "~":
+					if strings.Contains(strings.ToLower(post.name), expr.value) {
+						add = append(add, true)
+						continue
+					}
+				case "!=":
+					if expr.value != strings.ToLower(post.name) {
+						add = append(add, true)
+						continue
+					}
+				case "!~":
+					if !strings.Contains(strings.ToLower(post.name), expr.value) {
+						add = append(add, true)
+						continue
+					}
 				}
 			case "group":
 				switch expr.operand {
 				case "==":
 					if expr.value == strings.ToLower(post.groupName) {
+						add = append(add, true)
+						continue
+					}
+				case "~":
+					if strings.Contains(strings.ToLower(post.groupName), expr.value) {
+						add = append(add, true)
+						continue
+					}
+				case "!=":
+					if expr.value != strings.ToLower(post.groupName) {
+						add = append(add, true)
+						continue
+					}
+				case "!~":
+					if !strings.Contains(strings.ToLower(post.groupName), expr.value) {
 						add = append(add, true)
 						continue
 					}
@@ -928,6 +958,21 @@ func validComments(comments []*comment, post *post) []*comment {
 				switch expr.operand {
 				case "==":
 					if expr.value == strings.ToLower(post.trainingType) {
+						add = append(add, true)
+						continue
+					}
+				case "~":
+					if strings.Contains(strings.ToLower(post.trainingType), expr.value) {
+						add = append(add, true)
+						continue
+					}
+				case "!=":
+					if expr.value != strings.ToLower(post.trainingType) {
+						add = append(add, true)
+						continue
+					}
+				case "!~":
+					if !strings.Contains(strings.ToLower(post.trainingType), expr.value) {
 						add = append(add, true)
 						continue
 					}

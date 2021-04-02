@@ -55,15 +55,15 @@ In that case you must leave an empty first filed... Such as `| comment 1 | comme
 Expressions are written as `KEY OPERAND VALUE`, example `group == @Save the Hawk Foundation`.  
 The following keys can be used `name`, `group`, `type`, `duration` and `time`.
 
-The keys `name`, `group` and `type` only supports the `==` operand.  
-The `duration` and `time` keys supports `==`, `>=`, `<=` `>` and `<`.
+The keys `name`, `group` and `type` supports the `==`, `~`, `!=` and `!=` operands.  
+The `duration` and `time` keys supports `==`, `>=`, `<=` `>` and `<` operands.
 
 So to match on exercises over 90 minutes you would write `duration > 90`.
 
 `time` should be noted in `hh:mm` format and only checks time of day in `UTC` time.
 
 You can also have multiple expressions by chaning them together with `&&`.  
-Only `&&` (AND) is supported, so you cannot do OR any advanced checks with `(expr1 && expr2) || expr3`.
+Only `&&` (AND) is supported, so **you cannot do OR any advanced checks with `(expr1 && expr2) || expr3`.**
 
 For example `type == walking && duration > 90`.
 
