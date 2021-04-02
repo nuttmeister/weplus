@@ -30,7 +30,7 @@ const (
 )
 
 var (
-	commentRegexp  = regexp.MustCompile(`[ ]*(name|group|duration|type|time)[ ]*(==|<=|>=|<|>)[ ]*(.*)[ ]*`)
+	commentRegexp  = regexp.MustCompile(`[ ]*(name|group|duration|type|time)[ ]*(==|<=|>=|<|>|~|!=|!~)[ ]*(.*)[ ]*`)
 	exerciseRegexp = regexp.MustCompile(`<strong><a href="/users/([0-9]{5})">(.*)</a></strong>[ \n]*</h3>[ \n]*<div class="post-group-name">(.*)</div>[ \n]*<p class="post-status-string"><a href="/statuses/([0-9]{7})"><i class="fas fa-check fa-xs"></i> ([0-9]*) minutes</a> [A-Za-z0-9 <>/":=.,]*<a class="exercise-type" href="/exercises\?exercise_type_name=.*">(.*)</a> <a class="ago-in-words ago timeago" title="[A-Za-z0-9 :\-\+]*" id="exercise-[0-9]{7}-happened-at-ago" data-toggle-id="exercise-[0-9]{7}-happened-at-exact-time">[A-Za-z0-9 ]*</a><a class="ago-in-words exact-time" title="[0-9 \-:\+]*"* id="exercise-[0-9]{7}-happened-at-exact-time" data-toggle-id="exercise-[0-9]{7}-happened-at-ago">([A-Z-a-z0-9, :\+\-]*)</a>`)
 	postRegexp     = regexp.MustCompile(`<strong><a href="/users/([0-9]{5})">(.*)</a></strong>[ \n]*</h3>[ \n]*<div class="post-group-name">(.*)</div>[ \n]*<p class="post-status-string"><a href="/statuses/([0-9]{7})"><i class="fas fa-check fa-xs"></i> Post</a> <a class="ago-in-words ago timeago" id="post-[0-9]{7}-happened-at-ago" data-toggle-id="post-[0-9]{7}-happened-at-exact-time">[A-Za-z0-9 ]*</a><a class="ago-in-words exact-time" id="post-[0-9]{7}-happened-at-exact-time" data-toggle-id="post-[0-9]{7}-happened-at-ago">([A-Z-a-z0-9, :\+\-]*)</a>`)
 	userIDRegexp   = regexp.MustCompile(`<a href="/users/([0-9]{5})">[ \n]*<i class="fas fa-chart-bar"></i>[ \n]*My Statistics[ \n]*</a>`)
