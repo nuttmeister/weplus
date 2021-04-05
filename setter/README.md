@@ -53,10 +53,11 @@ Expressions can be empty to allow the comment to be used always.
 In that case you must leave an empty first filed... Such as `| comment 1 | comment 2`.
 
 Expressions are written as `KEY OPERAND VALUE`, example `group == @Save the Hawk Foundation`.  
-The following keys can be used `name`, `group`, `type`, `duration` and `time`.
+The following keys can be used `name`, `group`, `type`, `duration`,  `time` and `sentiment`.
 
 The keys `name`, `group` and `type` supports the `==`, `~`, `!=` and `!=` operands.  
-The `duration` and `time` keys supports `==`, `>=`, `<=` `>` and `<` operands.
+The `duration` and `time` keys supports `==`, `>=`, `<=` `>` and `<` operands.  
+The `sentiment` key only supports `==`.
 
 So to match on exercises over 90 minutes you would write `duration > 90`.
 
@@ -79,6 +80,11 @@ To support group comments, because you might want something else than the normal
 You will need to have comments as `type == group` (for group exercise entries) and `type == group-post`, if no comments
 with these expression exists no comment will be made on the group feed.  
 If it's a `group-post` entry the same limitation as the regular `post` (as stated above) apply.
+
+### Negative posts
+
+If the sentiment analysis by AWS comprehend turns out to be `NEGATIVE` or `MIXED` the system will only choose from posts that has
+the expresion `sentiment == neg`. Any other comments will be ignored for these.
 
 ### Variable substitution
 
