@@ -1152,5 +1152,11 @@ func language(languages []types.DominantLanguage, supported []string) types.Lang
 		}
 	}
 
-	return types.LanguageCode(lang)
+	for _, supportedLang := range supported {
+		if lang == supportedLang {
+			return types.LanguageCode(lang)
+		}
+	}
+
+	return types.LanguageCode("en")
 }
