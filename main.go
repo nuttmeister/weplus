@@ -998,7 +998,7 @@ func validComments(comments []*comment, post *post) []*comment {
 				exprDate, err := time.Parse(timeFormat, expr.value)
 				if err != nil {
 					add = append(add, false)
-					fmt.Printf("couldn't convert expression time %s to time.Time, continuing\n", post.date)
+					fmt.Printf("couldn't convert expression time %s to time.Time, continuing\n", expr.value)
 					continue
 				}
 				exprSeconds := (exprDate.UTC().Hour() * 60) + exprDate.Minute()
