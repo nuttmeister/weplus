@@ -3,6 +3,8 @@ github.com/aws/aws-lambda-go v1.23.0 h1:Vjwow5COkFJp7GePkk9kjAo/DyX36b7wVPKwseQZ
 github.com/aws/aws-lambda-go v1.23.0/go.mod h1:jJmlefzPfGnckuHdXX7/80O3BvUUi12XOkbv4w9SGLU=
 github.com/aws/aws-sdk-go-v2 v1.3.0 h1:2B/SbB1oOJe8RSl/TIgE11BDE4sX7Z+JupLxTdA2Rjs=
 github.com/aws/aws-sdk-go-v2 v1.3.0/go.mod h1:hTQc/9pYq5bfFACIUY9tc/2SYWd9Vnmw+testmuQeRY=
+github.com/aws/aws-sdk-go-v2 v1.3.1 h1:KKstwh6zsuUhQH3GvSor7M3am/+imPqydFOZHzlkTKc=
+github.com/aws/aws-sdk-go-v2 v1.3.1/go.mod h1:5SmWRTjN6uTRFNCc7rR69xHsdcUJnthmaRHGDsYhpTE=
 github.com/aws/aws-sdk-go-v2/config v1.1.3 h1:pYDr4DTr0w4GfweXhX2ns1ZGyH46nLP/ZeQQodl1s68=
 github.com/aws/aws-sdk-go-v2/config v1.1.3/go.mod h1:yf3tNRNqZKlylefSdp5R3v+sm1el90fhUTcSa/t69Ro=
 github.com/aws/aws-sdk-go-v2/credentials v1.1.3 h1:Q0S5OPP4l9kWrmPNK500pdQhg81x4E3UpvugYG5Wilc=
@@ -11,6 +13,8 @@ github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.0.4 h1:V7DbyJMo5kq31ZiyQMmjihje
 github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.0.4/go.mod h1:BDw1ukadBHn//M/n7LqpEgimGS0QtiJePnygMsbuYMs=
 github.com/aws/aws-sdk-go-v2/service/cloudwatchevents v1.2.0 h1:gXHyajuXD6lC4iaznrJcFzxOyg0E7f94MpRKmJ4hwvU=
 github.com/aws/aws-sdk-go-v2/service/cloudwatchevents v1.2.0/go.mod h1:oqhgyu/GPZZpma8mHoiUhqSwx2gSlxjccE9Lny3RR2g=
+github.com/aws/aws-sdk-go-v2/service/comprehend v1.3.0 h1:96FoGwdIZFHPHM2M6ANelkkJ4rKOI2B8XLOzC0w/9qk=
+github.com/aws/aws-sdk-go-v2/service/comprehend v1.3.0/go.mod h1:Tz85be6bzbfacIAf3ta3XMsZYCr3QgUcIdVsiVTbqwM=
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.0.2 h1:GO0pL4QvQmA0fXJe3MHVO+emtg31MYq5/8sebSWgE6A=
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.0.2/go.mod h1:bYl7lGFQQdHia3uMQH4p6ImnuOeDNeUoydoXM5x8Yzw=
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.0.4 h1:DRIpujxvhdv3+xLXCoaKk1VB4vk/Sh8sIOBewLJJpes=
@@ -29,6 +33,8 @@ github.com/aws/aws-sdk-go-v2/service/sts v1.2.0 h1:fGo3atNqTj3SOu1VKb52BUzRcYOhr
 github.com/aws/aws-sdk-go-v2/service/sts v1.2.0/go.mod h1:iGyHChDhzbddWEbC/+g/mT3z+A2JTJthcw+8QubXSgk=
 github.com/aws/smithy-go v1.2.0 h1:0PoGBWXkXDIyVdPaZW9gMhaGzj3UOAgTdiVoHuuZAFA=
 github.com/aws/smithy-go v1.2.0/go.mod h1:SObp3lf9smib00L/v3U2eAKG8FyQ7iLrJnQiAmR5n+E=
+github.com/aws/smithy-go v1.3.0 h1:awbB2OJBZ/Txj+c4q+qhDQs3Ob0sRhBuIIkOD4Aq8yc=
+github.com/aws/smithy-go v1.3.0/go.mod h1:SObp3lf9smib00L/v3U2eAKG8FyQ7iLrJnQiAmR5n+E=
 github.com/cpuguy83/go-md2man/v2 v2.0.0-20190314233015-f79a8a8ca69d/go.mod h1:maD7wRr/U5Z6m/iR4s+kqSMx2CaBsrgA7czyZG/E6dU=
 github.com/cpuguy83/go-md2man/v2 v2.0.0/go.mod h1:maD7wRr/U5Z6m/iR4s+kqSMx2CaBsrgA7czyZG/E6dU=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

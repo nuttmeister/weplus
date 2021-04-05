@@ -20,6 +20,8 @@ import (
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/comprehend"
+	"github.com/aws/aws-sdk-go-v2/service/comprehend/types"
 	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
@@ -30,9 +32,10 @@ const (
 )
 
 var (
-	commentRegexp  = regexp.MustCompile(`[ ]*(name|group|duration|type|time)[ ]*(==|<=|>=|<|>|~|!=|!~)[ ]*(.*)[ ]*`)
+	commentRegexp  = regexp.MustCompile(`[ ]*(name|group|duration|type|time|sentiment)[ ]*(==|<=|>=|<|>|~|!=|!~)[ ]*(.*)[ ]*`)
 	exerciseRegexp = regexp.MustCompile(`<strong><a href="/users/([0-9]{5})">(.*)</a></strong>[ \n]*</h3>[ \n]*<div class="post-group-name">(.*)</div>[ \n]*<p class="post-status-string"><a href="/statuses/([0-9]{7})"><i class="fas fa-check fa-xs"></i> ([0-9]*) minutes</a> [A-Za-z0-9 <>/":=.,]*<a class="exercise-type" href="/exercises\?exercise_type_name=.*">(.*)</a> <a class="ago-in-words ago timeago" title="[A-Za-z0-9 :\-\+]*" id="exercise-[0-9]{7}-happened-at-ago" data-toggle-id="exercise-[0-9]{7}-happened-at-exact-time">[A-Za-z0-9 ]*</a><a class="ago-in-words exact-time" title="[0-9 \-:\+]*"* id="exercise-[0-9]{7}-happened-at-exact-time" data-toggle-id="exercise-[0-9]{7}-happened-at-ago">([A-Z-a-z0-9, :\+\-]*)</a>`)
 	postRegexp     = regexp.MustCompile(`<strong><a href="/users/([0-9]{5})">(.*)</a></strong>[ \n]*</h3>[ \n]*<div class="post-group-name">(.*)</div>[ \n]*<p class="post-status-string"><a href="/statuses/([0-9]{7})"><i class="fas fa-check fa-xs"></i> Post</a> <a class="ago-in-words ago timeago" id="post-[0-9]{7}-happened-at-ago" data-toggle-id="post-[0-9]{7}-happened-at-exact-time">[A-Za-z0-9 ]*</a><a class="ago-in-words exact-time" id="post-[0-9]{7}-happened-at-exact-time" data-toggle-id="post-[0-9]{7}-happened-at-ago">([A-Z-a-z0-9, :\+\-]*)</a>`)
+	textRegexp     = regexp.MustCompile(`(?s)<div class="post-body">[ \n]*<p>(.*)</p></div>`)
 	userIDRegexp   = regexp.MustCompile(`<a href="/users/([0-9]{5})">[ \n]*<i class="fas fa-chart-bar"></i>[ \n]*My Statistics[ \n]*</a>`)
 	tokenRegexp    = regexp.MustCompile(`<meta name="csrf-token" content="([A-Za-z0-9+/=]*)" />`)
 
@@ -114,10 +117,11 @@ func handler(ctx context.Context, inp *input) (string, error) {
 }
 
 type cfg struct {
-	ctx    context.Context
-	kms    *kms.Client
-	s3     *s3.Client
-	client *http.Client
+	ctx        context.Context
+	kms        *kms.Client
+	s3         *s3.Client
+	comprehend *comprehend.Client
+	client     *http.Client
 
 	userID   string
 	token    string
@@ -145,6 +149,7 @@ func new(ctx context.Context, timeout int) (*cfg, error) {
 
 	cfg.kms = kms.NewFromConfig(awsCfg)
 	cfg.s3 = s3.NewFromConfig(awsCfg)
+	cfg.comprehend = comprehend.NewFromConfig(awsCfg)
 
 	return cfg, nil
 }
@@ -216,6 +221,10 @@ func (cfg *cfg) processCompanyFeeds(companyPosts []*post, data *data, comments [
 	for _, post := range companyPosts {
 		doLike, doComment, doSeen := doAction(post.postID, data.Company, *inp.LikeRatio, *inp.CommentRatio)
 		if doComment && !inp.MarkAsSeen {
+			if err := cfg.sentiment(post); err != nil {
+				fmt.Printf("couldn't get sentiment for text %s. %s", post.text, err.Error())
+			}
+
 			doLike = true
 			for _, msg := range random(comments, post) {
 				comment := replaceComment(msg, post)
@@ -305,6 +314,7 @@ func (cfg *cfg) load(inp *input) (*data, []*comment, error) {
 
 type comment struct {
 	weight      int
+	sentiment   string
 	expressions []*expression
 	comments    []string
 }
@@ -343,6 +353,12 @@ func loadComments(raw []byte) ([]*comment, error) {
 				matches := commentRegexp.FindStringSubmatch(expr)
 				if len(matches) != 4 {
 					return nil, fmt.Errorf("error in expression for comment row %s", rawComment)
+				}
+
+				// Special case for sentiment.
+				if strings.TrimSpace(matches[1]) == "sentiment" && strings.TrimSpace(matches[2]) == "==" {
+					comment.sentiment = strings.TrimSpace(matches[3])
+					continue
 				}
 
 				comment.expressions = append(comment.expressions, &expression{
@@ -550,6 +566,8 @@ type post struct {
 	groupName        string
 	trainingDuration string
 	trainingType     string
+	text             string
+	sentiment        types.SentimentType
 }
 
 func (cfg *cfg) getFeed(prev []string, feedType string, sort string, filter string, query string, offset string) ([]*post, error) {
@@ -614,8 +632,26 @@ func (cfg *cfg) getFeed(prev []string, feedType string, sort string, filter stri
 
 		data.postID = match[4]
 		data.userID = match[1]
+
+		// If at least one of the ids has been seen we can stop
+		// downloading new posts since we sort on created at.
+		if seen(data.postID, prev) {
+			done = true
+		}
+
+		// If postID has been seen skip any further processing.
+		if seen(data.postID, added) {
+			continue
+		}
+
+		// Skip commenting and liking your own posts.
+		if data.userID == cfg.userID {
+			continue
+		}
+
 		data.name = match[2]
 		data.groupName = match[3]
+		data.sentiment = types.SentimentTypeNeutral
 
 		date, err := time.Parse(dateFormat, rawDate)
 		if err != nil {
@@ -629,22 +665,15 @@ func (cfg *cfg) getFeed(prev []string, feedType string, sort string, filter stri
 			data.group = true
 		}
 
-		// Skip commenting and liking your own posts.
-		if data.userID == cfg.userID {
-			continue
+		// Get comment text.
+		text, err := cfg.getComment(data.postID)
+		if err != nil {
+			fmt.Printf("couldn't get comment text for post id %s. ignoring sentiment on post. %s\n", data.postID, err.Error())
 		}
+		data.text = text
 
-		// If at least one of the ids has been seen we can stop
-		// downloading new posts since we sort on created at.
-		if seen(data.postID, prev) {
-			done = true
-		}
-
-		// Check for duplicates in the dataset.
-		if !seen(data.postID, added) {
-			ids = append(ids, data)
-			added = append(added, data.postID)
-		}
+		ids = append(ids, data)
+		added = append(added, data.postID)
 	}
 
 	// If done is true we can just return and not process anymore posts.
@@ -667,6 +696,42 @@ func (cfg *cfg) getFeed(prev []string, feedType string, sort string, filter stri
 	}
 
 	return ids, nil
+}
+
+func (cfg *cfg) getComment(postID string) (string, error) {
+	req, err := newRequest(&request{
+		method:  "GET",
+		url:     fmt.Sprintf("https://www.weplusapp.com/statuses/%s?layout=false", postID),
+		referer: "https://www.weplusapp.com/",
+	})
+	if err != nil {
+		return "", err
+	}
+
+	resp, err := cfg.client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("couldn't send http request to %s. %w", req.URL.String(), err)
+	}
+	defer resp.Body.Close()
+
+	raw, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("couldn't read response body for %s. %w", req.URL.String(), err)
+	}
+	body := string(raw)
+
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("expected status code 200 from get feeds but got %d. %s", resp.StatusCode, body)
+	}
+
+	cfg.checkToken(body)
+
+	textMatches := textRegexp.FindStringSubmatch(body)
+	if len(textMatches) != 2 {
+		return "", fmt.Errorf("expected text matches to be 2 but got %d", len(textMatches))
+	}
+
+	return textMatches[1], nil
 }
 
 func (cfg *cfg) like(id string) error {
@@ -794,6 +859,18 @@ func validComments(comments []*comment, post *post) []*comment {
 		// If expression is empty and it's post or group don't add.
 		if len(comnt.expressions) == 0 && (!post.exercise || post.group) {
 			continue
+		}
+
+		// If sentiment is negative or mixed and sentiment isn't marked as negative simply don't add it.
+		switch post.sentiment {
+		case types.SentimentTypeMixed:
+			if comnt.sentiment != "neg" {
+				continue
+			}
+		case types.SentimentTypeNegative:
+			if comnt.sentiment != "neg" {
+				continue
+			}
 		}
 
 		add := []bool{}
@@ -1037,4 +1114,43 @@ func isValid(slice []bool) bool {
 		}
 	}
 	return true
+}
+
+func (cfg *cfg) sentiment(post *post) error {
+	if post.text == "" {
+		return nil
+	}
+
+	lang, err := cfg.comprehend.DetectDominantLanguage(cfg.ctx, &comprehend.DetectDominantLanguageInput{
+		Text: &post.text,
+	})
+	if err != nil {
+		return fmt.Errorf("couldn't detect language for %s. %w", post.text, err)
+	}
+
+	langCode := language(lang.Languages, supportedLanguages)
+
+	res, err := cfg.comprehend.DetectSentiment(cfg.ctx, &comprehend.DetectSentimentInput{
+		Text:         &post.text,
+		LanguageCode: langCode,
+	})
+	if err != nil {
+		return fmt.Errorf("couldn't get sentiment of text %s. %w", post.text, err)
+	}
+
+	post.sentiment = res.Sentiment
+	return nil
+}
+
+var supportedLanguages = []string{"de", "en", "es", "it", "pt", "fr", "ja", "ko", "hi", "ar", "zh", "zh-TW"}
+
+func language(languages []types.DominantLanguage, supported []string) types.LanguageCode {
+	lang, top := "en", float32(0)
+	for _, detectedLang := range languages {
+		if *detectedLang.Score > top {
+			lang, top = *detectedLang.LanguageCode, *detectedLang.Score
+		}
+	}
+
+	return types.LanguageCode(lang)
 }
