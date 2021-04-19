@@ -190,6 +190,7 @@ func (cfg *cfg) processGroupFeeds(groupPosts []*post, data *data, comments []*co
 	for _, post := range groupPosts {
 		if dl, ok := cfg.ctx.Deadline(); ok {
 			if time.Now().Add(time.Duration(30) * time.Second).After(dl) {
+				fmt.Printf("less then 30 seconds left of deadline. aborting and saving state!\n")
 				return ids, output, nil
 			}
 		}
@@ -227,6 +228,7 @@ func (cfg *cfg) processCompanyFeeds(companyPosts []*post, data *data, comments [
 	for _, post := range companyPosts {
 		if dl, ok := cfg.ctx.Deadline(); ok {
 			if time.Now().Add(time.Duration(30) * time.Second).After(dl) {
+				fmt.Printf("less then 30 seconds left of deadline. aborting and saving state!\n")
 				return ids, output, nil
 			}
 		}
