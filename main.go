@@ -188,6 +188,12 @@ func (cfg *cfg) processGroupFeeds(groupPosts []*post, data *data, comments []*co
 	output := []string{}
 
 	for _, post := range groupPosts {
+		if dl, ok := cfg.ctx.Deadline(); ok {
+			if time.Now().Add(time.Duration(30) * time.Second).After(dl) {
+				return ids, output, nil
+			}
+		}
+
 		doSeen := seen(post.postID, data.Group)
 		if !doSeen && !inp.MarkAsSeen {
 			if err := cfg.like(post.postID); err != nil {
@@ -219,6 +225,12 @@ func (cfg *cfg) processCompanyFeeds(companyPosts []*post, data *data, comments [
 	output := []string{}
 
 	for _, post := range companyPosts {
+		if dl, ok := cfg.ctx.Deadline(); ok {
+			if time.Now().Add(time.Duration(30) * time.Second).After(dl) {
+				return ids, output, nil
+			}
+		}
+
 		doLike, doComment, doSeen := doAction(post.postID, data.Company, *inp.LikeRatio, *inp.CommentRatio)
 		if doComment && !inp.MarkAsSeen {
 			if err := cfg.sentiment(post); err != nil {
